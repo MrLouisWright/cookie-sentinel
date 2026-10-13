@@ -1,0 +1,56 @@
+name: 'cookie-sentinel'
+description: 'Fail CI on insecure cookies: missing Secure/HttpOnly/SameSite, prefix violations, broad scope, long expiry, secrets in values'
+author: 'Louis Wright'
+branding: { icon: 'shield', color: 'orange' }
+inputs:
+  urls: { description: 'Space-separated URLs to audit', default: '' }
+  paths: { description: 'Space-separated extra paths to fetch on each URL, e.g. "/login /account"', default: '' }
+  input: { description: 'File of raw Set-Cookie lines to audit offline instead of fetching', default: '' }
+  origin: { description: 'URL context for input (default https://example.com/)', default: '' }
+  fail-on: { description: 'critical | high | medium | low | info | none', default: 'high' }
+  config: { description: 'Path to JSON config file', default: '' }
+  bearer: { description: 'Bearer token for logged-in pages (pass a secret)', default: '' }
+  sarif: { description: 'Write SARIF to this path (upload with github/codeql-action/upload-sarif)', default: '' }
+  json: { description: 'Write JSON report to this path', default: '' }
+  job-summary: { description: 'Write the Markdown report to the job summary (true/false)', default: 'true' }
+  args: { description: 'Extra CLI arguments', default: '' }
+outputs:
+  markdown-file: { description: 'Path of the Markdown report', value: '${{ steps.run.outputs.markdown-file }}' }
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with: { node-version: '20' }
+    - id: run
+      shell: bash
+      env:
+        CS_URLS: ${{ inputs.urls }}
+        CS_PATHS: ${{ inputs.paths }}
+        CS_INPUT: ${{ inputs.input }}
+        CS_ORIGIN: ${{ inputs.origin }}
+        CS_FAIL_ON: ${{ inputs.fail-on }}
+        CS_CONFIG: ${{ inputs.config }}
+        COOKIE_SENTINEL_BEARER: ${{ inputs.bearer }}
+        CS_SARIF: ${{ inputs.sarif }}
+        CS_JSON: ${{ inputs.json }}
+        CS_SUMMARY: ${{ inputs.job-summary }}
+        CS_ARGS: ${{ inputs.args }}
+        CS_BIN: ${{ github.action_path }}/bin/cookie-sentinel.js
+        FORCE_COLOR: '1'
+      run: |
+        md="$RUNNER_TEMP/cookie-sentinel.md"
+        args=(--fail-on "$CS_FAIL_ON" --markdown "$md")
+        for p in $CS_PATHS; do args+=(--path "$p"); done
+        [ -n "$CS_INPUT" ] && args+=(--input "$CS_INPUT")
+        [ -n "$CS_ORIGIN" ] && args+=(--origin "$CS_ORIGIN")
+        [ -n "$CS_CONFIG" ] && args+=(--config "$CS_CONFIG")
+        [ -n "$CS_SARIF" ] && args+=(--sarif "$CS_SARIF")
+        [ -n "$CS_JSON" ] && args+=(--json "$CS_JSON")
+        set +e
+        # shellcheck disable=SC2086
+        node "$CS_BIN" $CS_URLS "${args[@]}" $CS_ARGS
+        code=$?
+        set -e
+        echo "markdown-file=$md" >> "$GITHUB_OUTPUT"
+        if [ "$CS_SUMMARY" = "true" ] && [ -f "$md" ]; then cat "$md" >> "$GITHUB_STEP_SUMMARY"; fi
+        exit $code
