@@ -1,22 +1,61 @@
 {
   "name": "cookie-sentinel",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Audit Set-Cookie headers for security issues: missing Secure/HttpOnly/SameSite, __Host-/__Secure- prefix violations, broad Domain/Path, long expiry, cookies over HTTP, oversized cookies, JWTs and emails in values, duplicates and Partitioned misuse, with a fix for each. Follows redirects, supports auth headers and offline input. Text, JSON, SARIF, Markdown; GitHub Action included. Zero dependencies.",
   "type": "module",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "exports": {
-    ".": { "types": "./src/index.d.ts", "default": "./src/index.js" },
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
     "./package.json": "./package.json"
   },
-  "bin": { "cookie-sentinel": "bin/cookie-sentinel.js" },
-  "files": ["src", "bin", "action.yml", "README.md", "CHANGELOG.md", "LICENSE"],
-  "engines": { "node": ">=18" },
-  "scripts": { "test": "node --test test/*.test.js" },
-  "keywords": ["cookies", "set-cookie", "security", "cookie-security", "samesite", "httponly", "secure-cookies", "web-security", "owasp", "sarif", "cli", "github-action", "devsecops", "audit", "csrf", "xss", "jwt"],
+  "bin": {
+    "cookie-sentinel": "bin/cookie-sentinel.js"
+  },
+  "files": [
+    "src",
+    "bin",
+    "action.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "cookies",
+    "set-cookie",
+    "security",
+    "cookie-security",
+    "samesite",
+    "httponly",
+    "secure-cookies",
+    "web-security",
+    "owasp",
+    "sarif",
+    "cli",
+    "github-action",
+    "devsecops",
+    "audit",
+    "csrf",
+    "xss",
+    "jwt"
+  ],
   "author": "Louis Wright <hello@louiswright.co.uk> (https://github.com/MrLouisWright)",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/MrLouisWright/cookie-sentinel.git" },
-  "bugs": { "url": "https://github.com/MrLouisWright/cookie-sentinel/issues" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrLouisWright/cookie-sentinel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MrLouisWright/cookie-sentinel/issues"
+  },
   "homepage": "https://github.com/MrLouisWright/cookie-sentinel#readme"
 }
