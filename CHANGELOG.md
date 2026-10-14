@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 — 2026-10-14
+
+- **Multi-page crawl** with `--crawl-depth` / `--max-pages` (or `crawl` in config): follows same-origin links and audits cookies on every discovered page.
+- **Scripted auth** via `--headers-file`, `--cookies-file`, and optional `login` step in config (POST/login URL before crawl or fetch).
+- **Open Cookie Database** classification (first/third-party, tracking/essential) using a bundled offline snapshot; refresh with `npm run update-ocdb`.
+- **Optional headless browser** mode (`--browser playwright|puppeteer`) to capture cookies set via JavaScript (peer dependencies, loaded dynamically).
+- Dual **ESM + CJS** exports (`import` / `require`), TypeScript declarations generated from source (`npm run build`), CI checks for both.
+- Release workflow publishes with **`npm publish --provenance`**.
+
 ## 1.0.0 — 2026-10-13
 
 Initial release by Louis Wright.

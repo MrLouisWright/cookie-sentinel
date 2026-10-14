@@ -1,8 +1,16 @@
 import { parseSetCookie, splitCookiesString, lifetimeSeconds } from './parse.js';
 import { RULES, SEVERITIES, rank, runRules, compilePatterns, DEFAULT_SESSION_PATTERNS, DEFAULT_NOT_SESSION_PATTERNS, isSessionLike } from './rules.js';
 import { collect, expandTargets } from './fetch.js';
+import { discoverPages, mergeCrawlTargets } from './crawl.js';
+import { loadHeadersFile, loadCookiesFile, mergeCookieHeader, runLogin } from './auth.js';
+import { classifyCookie, lookupOpenCookieDatabase, databaseMeta } from './classify.js';
+import { collectBrowser } from './browser.js';
 export { formatText, formatJson, formatSarif, formatMarkdown } from './report.js';
-export { parseSetCookie, splitCookiesString, lifetimeSeconds, RULES, SEVERITIES, collect, expandTargets, isSessionLike };
+export {
+  parseSetCookie, splitCookiesString, lifetimeSeconds, RULES, SEVERITIES, collect, expandTargets, isSessionLike,
+  discoverPages, mergeCrawlTargets, loadHeadersFile, loadCookiesFile, mergeCookieHeader, runLogin,
+  classifyCookie, lookupOpenCookieDatabase, databaseMeta, collectBrowser,
+};
 
 export const DEFAULTS = { maxAgeDays: 400, sessionMaxAgeDays: 30, largeBytes: 3072, flagBroadPath: true, thirdParty: false };
 
@@ -40,14 +48,61 @@ export function applyConfig(findings, config = {}) {
   return { findings: out, suppressed };
 }
 
+function enrichObservations(observations, config) {
+  if (config.classify === false) return observations;
+  return observations.map((o) => ({
+    ...o,
+    classification: classifyCookie(o.cookie, o.url),
+  }));
+}
+
 /** Audit already-collected observations ([{cookie,url}]) and build a report. */
 export function auditObservations(observations, config = {}, meta = {}) {
   const opts = resolveOptions(config);
-  const raw = runRules(observations, opts);
+  const enriched = enrichObservations(observations, config);
+  const raw = runRules(enriched, opts);
   const { findings, suppressed } = applyConfig(raw, config);
   const counts = Object.fromEntries(SEVERITIES.map((s) => [s, findings.filter((f) => f.severity === s).length]));
-  const cookies = observations.map((o) => ({ name: o.cookie.name, url: o.url, hop: o.hop, sessionLike: isSessionLike(o.cookie.name, opts), setCookie: o.cookie.raw }));
-  return { tool: 'cookie-sentinel', generatedAt: new Date(config.now ?? Date.now()).toISOString(), targets: meta.targets || [], cookies, findings, suppressed, counts, errors: meta.errors || [] };
+  const cookies = enriched.map((o) => ({
+    name: o.cookie.name,
+    url: o.url,
+    hop: o.hop,
+    sessionLike: isSessionLike(o.cookie.name, opts),
+    setCookie: o.cookie.raw,
+    source: o.source,
+    classification: o.classification,
+  }));
+  const classificationSummary = summarizeClassification(cookies);
+  return {
+    tool: 'cookie-sentinel',
+    generatedAt: new Date(config.now ?? Date.now()).toISOString(),
+    targets: meta.targets || [],
+    crawl: meta.crawl,
+    browser: meta.browser,
+    openCookieDatabase: databaseMeta(),
+    cookies,
+    classificationSummary,
+    findings,
+    suppressed,
+    counts,
+    errors: meta.errors || [],
+  };
+}
+
+function summarizeClassification(cookies) {
+  const summary = { firstParty: 0, thirdParty: 0, unknownParty: 0, essential: 0, tracking: 0, unknownPurpose: 0, catalogued: 0 };
+  for (const c of cookies) {
+    const cl = c.classification;
+    if (!cl) continue;
+    if (cl.party === 'first-party') summary.firstParty++;
+    else if (cl.party === 'third-party') summary.thirdParty++;
+    else summary.unknownParty++;
+    if (cl.purpose === 'essential') summary.essential++;
+    else if (cl.purpose === 'tracking') summary.tracking++;
+    else summary.unknownPurpose++;
+    if (cl.openCookieDatabase) summary.catalogued++;
+  }
+  return summary;
 }
 
 /** Audit raw Set-Cookie header lines (offline). `origin` gives the URL context. */
@@ -59,7 +114,7 @@ export function auditSetCookies(input, { origin = 'https://example.com/', config
   for (const line of lines) {
     const t = line.trim();
     if (!t || t.startsWith('#')) continue;
-    const m = t.match(/^@\s*(\S+)/); // "@ https://host/path" switches context (a new response)
+    const m = t.match(/^@\s*(\S+)/);
     if (m) { url = new URL(m[1], url).href; response++; continue; }
     if (/^---+$/.test(t)) { response++; continue; }
     for (const sc of splitCookiesString(t.replace(/^set-cookie\s*:\s*/i, ''))) {
@@ -70,9 +125,67 @@ export function auditSetCookies(input, { origin = 'https://example.com/', config
   return auditObservations(observations, config, { targets: [{ url: origin, offline: true }] });
 }
 
-/** Fetch URLs (× paths) and audit every Set-Cookie on every hop. */
-export async function auditUrls(urls, { paths = [], headers = {}, config = {}, maxRedirects, timeout, insecure, jar, concurrency = 4 } = {}) {
-  const targets = expandTargets(urls, paths);
+async function resolveRequestHeaders(config = {}, cliHeaders = {}) {
+  let headers = { ...(config.headers || {}), ...cliHeaders };
+  if (config.headersFile) headers = { ...loadHeadersFile(config.headersFile), ...headers };
+  if (config.cookiesFile) headers = mergeCookieHeader(headers, loadCookiesFile(config.cookiesFile));
+  if (config.login) {
+    const { headers: afterLogin } = await runLogin(config.login, { headers, ...config.loginFetch });
+    headers = afterLogin;
+  }
+  return headers;
+}
+
+/** Fetch URLs (× paths), optional multi-page crawl and headless browser capture. */
+export async function auditUrls(urls, {
+  paths = [],
+  headers: headerOverrides = {},
+  config = {},
+  maxRedirects,
+  timeout,
+  insecure,
+  jar,
+  concurrency = 4,
+  crawl,
+  browser,
+} = {}) {
+  const headers = await resolveRequestHeaders(config, headerOverrides);
+  let seeds = expandTargets(urls, paths);
+  let crawlMeta;
+  const crawlOpts = crawl ?? config.crawl;
+  if (crawlOpts && crawlOpts.enabled !== false) {
+    const discovered = await discoverPages(seeds, {
+      maxPages: crawlOpts.maxPages ?? 25,
+      maxDepth: crawlOpts.maxDepth ?? 2,
+      sameOrigin: crawlOpts.sameOrigin !== false,
+      headers,
+      timeout: crawlOpts.timeout ?? timeout,
+      insecure: crawlOpts.insecure ?? insecure,
+      maxRedirects: crawlOpts.maxRedirects ?? maxRedirects,
+      jar: crawlOpts.jar ?? jar,
+      concurrency: crawlOpts.concurrency ?? concurrency,
+      allowPath: crawlOpts.allowPath,
+      denyPath: crawlOpts.denyPath,
+    });
+    seeds = mergeCrawlTargets(urls, discovered.urls, paths);
+    crawlMeta = { seeds: urls.length, discovered: discovered.urls.length, maxPages: crawlOpts.maxPages ?? 25, errors: discovered.errors };
+  }
+
+  const browserOpts = browser ?? config.browser;
+  let browserMeta;
+  let browserObservations = [];
+  if (browserOpts && browserOpts.engine) {
+    const { observations, targets } = await collectBrowser(seeds, {
+      engine: browserOpts.engine,
+      headers,
+      timeout: browserOpts.timeout ?? timeout,
+      waitUntil: browserOpts.waitUntil,
+    });
+    browserObservations = observations;
+    browserMeta = { engine: browserOpts.engine, pages: targets.length, cookies: observations.length };
+  }
+
+  const targets = seeds;
   const results = new Array(targets.length);
   let next = 0;
   const worker = async () => {
@@ -83,10 +196,13 @@ export async function auditUrls(urls, { paths = [], headers = {}, config = {}, m
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, targets.length) }, worker));
-  const observations = results.flatMap((r) => r.observations || []);
-  const errors = results.filter((r) => r.error).map((r) => ({ url: r.url, error: r.error }));
+  const observations = [...results.flatMap((r) => r.observations || []), ...browserObservations];
+  const errors = [
+    ...(crawlMeta?.errors || []),
+    ...results.filter((r) => r.error).map((r) => ({ url: r.url, error: r.error })),
+  ];
   const tmeta = results.map((r) => (r.error ? { url: r.url, error: r.error } : { url: r.url, finalUrl: r.finalUrl, hops: r.hops.map((h) => ({ url: h.url, status: h.status, location: h.location, cookies: h.setCookie.length })) }));
-  return auditObservations(observations, config, { targets: tmeta, errors });
+  return auditObservations(observations, config, { targets: tmeta, errors, crawl: crawlMeta, browser: browserMeta });
 }
 
 export function exceeds(report, failOn = 'high') {
