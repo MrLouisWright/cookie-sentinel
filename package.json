@@ -42,8 +42,12 @@
     "puppeteer": ">=21.0.0"
   },
   "peerDependenciesMeta": {
-    "playwright": { "optional": true },
-    "puppeteer": { "optional": true }
+    "playwright": {
+      "optional": true
+    },
+    "puppeteer": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
@@ -80,5 +84,5 @@
   "bugs": {
     "url": "https://github.com/MrLouisWright/cookie-sentinel/issues"
   },
-  "homepage": "https://github.com/MrLouisWright/cookie-sentinel#readme"
+  "homepage": "https://mrlouiswright.github.io/cookie-sentinel/"
 }
