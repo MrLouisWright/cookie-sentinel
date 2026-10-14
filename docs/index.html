@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cookie-sentinel · Audit the cookies your site sets before attackers do.</title>
+<meta name="description" content="Audit the cookies your site sets before attackers do. Fetches your pages, follows every redirect, collects every Set-Cookie header from every hop and audits each cookie against modern browser rules and security best practice, with a concrete fix for every finding. Classifies cookies offline against ">
+<meta name="theme-color" content="#07090c">
+<link rel="canonical" href="https://mrlouiswright.github.io/cookie-sentinel/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="cookie-sentinel: Audit the cookies your site sets before attackers do.">
+<meta property="og:description" content="Audit the cookies your site sets before attackers do. Fetches your pages, follows every redirect, collects every Set-Cookie header from every hop and audits each cookie against modern browser rules and security best practice, with a concrete fix for every finding. Classifies cookies offline against ">
+<meta property="og:url" content="https://mrlouiswright.github.io/cookie-sentinel/">
+<meta property="og:image" content="https://mrlouiswright.github.io/cookie-sentinel/og.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="cookie-sentinel: Audit the cookies your site sets before attackers do.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="cookie-sentinel">
+<meta name="twitter:description" content="Audit the cookies your site sets before attackers do.">
+<meta name="twitter:image" content="https://mrlouiswright.github.io/cookie-sentinel/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>:root{--accent:#fbbf24;--accent-2:#a16207}</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="./"><span class="brand-g" aria-hidden="true">K</span>cookie-sentinel</a>
+    <nav aria-label="Primary"><ul>
+      <li><a href="#features">Features</a></li><li><a href="#usage">Usage</a></li><li><a href="#ci">CI</a></li><li><a href="#options">Options</a></li>
+      <li><a class="gh" href="https://github.com/MrLouisWright/cookie-sentinel">GitHub</a></li>
+    </ul></nav>
+  </div>
+</header>
+<main id="main">
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="dot" aria-hidden="true"></span> npm package · MIT · Node ≥ 18</p>
+      <h1>cookie-sentinel</h1>
+      <p class="tagline">Audit the cookies your site sets before attackers do.</p>
+      <p class="lede">Fetches your pages, follows every redirect, collects every Set-Cookie header from every hop and audits each cookie against modern browser rules and security best practice, with a concrete fix for every finding. Classifies cookies offline against a bundled Open Cookie Database snapshot. Also audits raw Set-Cookie lines from a file or stdin. Zero runtime dependencies.</p>
+      <div class="install">
+        <code id="install-cmd"><span class="prompt" aria-hidden="true">$</span> npm i -D cookie-sentinel</code>
+        <button class="copy" type="button" data-copy="npm i -D cookie-sentinel" aria-label="Copy install command">Copy</button>
+        <span class="sr-only" role="status" aria-live="polite" id="copy-status"></span>
+      </div>
+      <div class="ctas">
+        <a class="btn primary" href="https://github.com/MrLouisWright/cookie-sentinel#readme">Read the docs</a>
+        <a class="btn" href="https://www.npmjs.com/package/cookie-sentinel">View on npm</a>
+        <a class="btn" href="https://github.com/MrLouisWright/cookie-sentinel">Source on GitHub</a>
+      </div>
+      <div class="badges">
+        <a href="https://www.npmjs.com/package/cookie-sentinel"><img src="https://img.shields.io/npm/v/cookie-sentinel.svg?style=flat-square&amp;color=111" alt="npm version of cookie-sentinel" height="20"></a>
+        <a href="https://github.com/MrLouisWright/cookie-sentinel/actions/workflows/ci.yml"><img src="https://github.com/MrLouisWright/cookie-sentinel/actions/workflows/ci.yml/badge.svg" alt="CI status" height="20"></a>
+        <a href="https://github.com/MrLouisWright/cookie-sentinel/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License: MIT" height="20"></a>
+        <a href="https://github.com/MrLouisWright/cookie-sentinel"><img src="https://img.shields.io/github/stars/MrLouisWright/cookie-sentinel?style=flat-square" alt="GitHub stars for cookie-sentinel" height="20"></a>
+      </div>
+    </div>
+    <figure class="term" aria-label="Example terminal session running cookie-sentinel">
+      <div class="term-bar"><span></span><span></span><span></span><em>~/project — zsh</em></div>
+      <pre class="term-body" data-cmd="curl -si https://app.example.com | npx cookie-sentinel --input -"><span class="ln cmd"><span class="prompt">$</span> <span class="typed">curl -si https://app.example.com | npx cookie-sentinel --input -</span><span class="caret" aria-hidden="true"></span></span><span class="out"><span class="ln b">cookie-sentinel — 2 cookie(s) from 1 target(s)</span><span class="ln dim">&nbsp;</span><span class="ln b">session  https://app.example.com</span><span class="ln e">  HIGH     &quot;session&quot; has no Secure attribute; it will be sent over plain HTTP if the user ever hits an http:// URL [missing-secure]</span><span class="ln f">           ↳ fix: Add Secure: `Set-Cookie: session=…; Secure`.</span><span class="ln e">  HIGH     &quot;session&quot; looks like a session/auth cookie but lacks HttpOnly, so any XSS can steal it via document.cookie [missing-httponly]</span><span class="ln f">           ↳ fix: Add HttpOnly.</span><span class="ln w">  MEDIUM   &quot;session&quot; has no SameSite attribute; behaviour depends on the browser default [samesite-missing]</span><span class="ln f">           ↳ fix: Set it explicitly: `SameSite=Lax` (or `Strict` for this session cookie).</span><span class="ln dim">&nbsp;</span><span class="ln b">3 high, 2 medium, 1 info</span><span class="ln e">✖ Failing (fail-on: high).</span></span></pre>
+      <figcaption class="sr-only">Sample output adapted from the cookie-sentinel README.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="sec" id="problem">
+  <div class="wrap narrow">
+    <h2><span class="h-idx">01</span> The problem</h2>
+    <p class="big">A session cookie without HttpOnly, a SameSite=None cookie without Secure, a Domain= that hands your auth cookie to every subdomain: these slip in through framework defaults, middleware and third-party code, and they are invisible in the UI.</p>
+    <p class="big">cookie-sentinel collects every Set-Cookie from every redirect hop, logged-in pages included, and fails CI with the exact attribute to add.</p>
+  </div>
+</section>
+
+<section class="sec" id="features">
+  <div class="wrap">
+    <h2><span class="h-idx">02</span> Features</h2>
+    <div class="grid">
+      <article class="card"><span class="card-i" aria-hidden="true">01</span><h3>Every hop audited</h3><p>Follows redirects and audits cookies set by each response, including plain http:// hops.</p></article>
+      <article class="card"><span class="card-i" aria-hidden="true">02</span><h3>Modern browser rules</h3><p>Secure, HttpOnly, SameSite, __Host- / __Secure- prefixes, Partitioned, Domain and Path scoping.</p></article>
+      <article class="card"><span class="card-i" aria-hidden="true">03</span><h3>Sensitive values</h3><p>Flags JWTs in cookies, unsigned alg:none JWTs and email addresses (plain, URL-encoded, base64 or in JWT claims).</p></article>
+      <article class="card"><span class="card-i" aria-hidden="true">04</span><h3>Cookie tossing</h3><p>Detects duplicate cookies and one name set with different Domain/Path scopes.</p></article>
+      <article class="card"><span class="card-i" aria-hidden="true">05</span><h3>Open Cookie Database</h3><p>Offline classification: first vs third party, tracking vs essential, vendor and category.</p></article>
+      <article class="card"><span class="card-i" aria-hidden="true">06</span><h3>Logged-in pages</h3><p>Headers, bearer tokens, cookie jars, scripted login and same-origin crawling.</p></article>
+      <article class="card"><span class="card-i" aria-hidden="true">07</span><h3>JS-set cookies</h3><p>Optional Playwright or Puppeteer peer dependency to capture cookies set by scripts.</p></article>
+      <article class="card"><span class="card-i" aria-hidden="true">08</span><h3>Offline mode</h3><p>Pipe raw Set-Cookie lines in with --input; text, JSON, SARIF and Markdown output.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="usage">
+  <div class="wrap">
+    <h2><span class="h-idx">03</span> Usage</h2>
+    <div class="usage">
+      <div class="u"><p class="u-t"># Audit a site</p><pre><code><span class="prompt" aria-hidden="true">$</span> npx cookie-sentinel https://example.com</code></pre></div>
+      <div class="u"><p class="u-t"># Extra paths, stricter gate</p><pre><code><span class="prompt" aria-hidden="true">$</span> npx cookie-sentinel https://example.com -p /login -p /account --fail-on medium</code></pre></div>
+      <div class="u"><p class="u-t"># Crawl same-origin links</p><pre><code><span class="prompt" aria-hidden="true">$</span> npx cookie-sentinel https://app.example.com --crawl-depth 2 --max-pages 40</code></pre></div>
+      <div class="u"><p class="u-t"># Offline to SARIF</p><pre><code><span class="prompt" aria-hidden="true">$</span> npx cookie-sentinel --input set-cookies.txt --origin https://app.example.com -f sarif &gt; cookies.sarif</code></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<section class="sec" id="ci">
+  <div class="wrap">
+    <h2><span class="h-idx">04</span> CI / GitHub Action</h2>
+    <pre class="code yaml"><code>permissions:
+  contents: read
+  security-events: write
+jobs:
+  cookies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: MrLouisWright/cookie-sentinel@&lt;sha&gt;
+        with:
+          urls: https://staging.example.com
+          paths: /login /account
+          bearer: ${{ secrets.STAGING_TOKEN }}
+          fail-on: medium
+          args: --crawl-depth 1 --max-pages 20
+          sarif: cookies.sarif</code></pre>
+  </div>
+</section>
+
+<section class="sec" id="options">
+  <div class="wrap">
+    <h2><span class="h-idx">05</span> Options &amp; flags</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th scope="col">Flag</th><th scope="col">Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>&lt;url…&gt;</code></td><td>URLs to fetch (https:// assumed). Redirects are followed and cookies from every hop are audited</td></tr>
+        <tr><td><code>-p, --path &lt;path&gt;</code></td><td>Extra path to fetch on every URL (repeatable)</td></tr>
+        <tr><td><code>--crawl &lt;file&gt;</code></td><td>File of URLs or paths, one per line</td></tr>
+        <tr><td><code>--crawl-depth &lt;n&gt;</code></td><td>Follow same-origin links up to depth n (0 = off)</td></tr>
+        <tr><td><code>--max-pages &lt;n&gt;</code></td><td>Cap when crawling (default 25)</td></tr>
+        <tr><td><code>-H, --header "Name: value"</code></td><td>Request header (repeatable), e.g. Cookie or Authorization</td></tr>
+        <tr><td><code>--headers-file &lt;file&gt;</code></td><td>JSON headers for scripted auth</td></tr>
+        <tr><td><code>--cookies-file &lt;file&gt;</code></td><td>Cookie jar file (JSON, name=value lines, or Netscape format)</td></tr>
+        <tr><td><code>--bearer &lt;token&gt;</code></td><td>Authorization: Bearer shortcut (or COOKIE_SENTINEL_BEARER)</td></tr>
+        <tr><td><code>--browser &lt;engine&gt;</code></td><td>playwright or puppeteer (optional peer dependencies)</td></tr>
+        <tr><td><code>-i, --input &lt;file|-&gt;</code></td><td>Audit raw Set-Cookie lines offline</td></tr>
+        <tr><td><code>--origin &lt;url&gt;</code></td><td>URL context for --input (default https://example.com/)</td></tr>
+        <tr><td><code>-c, --config &lt;file&gt;</code></td><td>JSON config (default .cookie-sentinel.json if present)</td></tr>
+        <tr><td><code>-f, --format</code></td><td>text (default), json, sarif, markdown</td></tr>
+        <tr><td><code>--fail-on &lt;sev&gt;</code></td><td>critical, high (default), medium, low, info or none</td></tr>
+        <tr><td><code>--no-classify</code></td><td>Skip Open Cookie Database enrichment</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Full reference, config file format and API in the <a href="https://github.com/MrLouisWright/cookie-sentinel#readme">README</a>.</p>
+  </div>
+</section>
+
+<section class="sec more" id="more">
+  <div class="wrap">
+    <h2><span class="h-idx">06</span> More tools by Louis Wright</h2>
+    <div class="tools">
+<a class="tool" href="https://mrlouiswright.github.io/bundle-secret-guard/" style="--a:#f43f5e"><span class="tool-g" aria-hidden="true">S</span><span><strong>bundle-secret-guard</strong><small>Fail the build when secrets ship to the browser.</small></span></a>
+<a class="tool" href="https://mrlouiswright.github.io/csp-forge/" style="--a:#f59e0b"><span class="tool-g" aria-hidden="true">C</span><span><strong>csp-forge</strong><small>Generate a tight Content-Security-Policy from your built site.</small></span></a>
+<a class="tool" href="https://mrlouiswright.github.io/form-honeypot-guard/" style="--a:#a3e635"><span class="tool-g" aria-hidden="true">F</span><span><strong>form-honeypot-guard</strong><small>Block form spam bots without a captcha.</small></span></a>
+<a class="tool" href="https://mrlouiswright.github.io/header-sentinel/" style="--a:#22d3ee"><span class="tool-g" aria-hidden="true">H</span><span><strong>header-sentinel</strong><small>Fail CI when deployed URLs ship weak HTTP security headers.</small></span></a>
+<a class="tool" href="https://mrlouiswright.github.io/license-sentinel/" style="--a:#60a5fa"><span class="tool-g" aria-hidden="true">⚖</span><span><strong>license-sentinel</strong><small>A license compliance gate for npm projects, plus CycloneDX/SPDX SBOMs and a NOTICES file.</small></span></a>
+<a class="tool" href="https://mrlouiswright.github.io/package-tripwire/" style="--a:#fb923c"><span class="tool-g" aria-hidden="true">P</span><span><strong>package-tripwire</strong><small>Fail CI when dependency changes look suspicious.</small></span></a>
+<a class="tool" href="https://mrlouiswright.github.io/sri-sentinel/" style="--a:#34d399"><span class="tool-g" aria-hidden="true">I</span><span><strong>sri-sentinel</strong><small>Subresource Integrity for your built site: generate, write and check it in CI.</small></span></a>
+<a class="tool" href="https://mrlouiswright.github.io/static-link-sentinel/" style="--a:#a78bfa"><span class="tool-g" aria-hidden="true">L</span><span><strong>static-link-sentinel</strong><small>Fail CI on broken links before you deploy.</small></span></a>
+<a class="tool" href="https://mrlouiswright.github.io/workflow-sentinel/" style="--a:#2dd4bf"><span class="tool-g" aria-hidden="true">W</span><span><strong>workflow-sentinel</strong><small>Catch insecure GitHub Actions workflows before they're merged.</small></span></a>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <p>MIT © <a href="https://github.com/MrLouisWright">Louis Wright</a></p>
+    <p><a href="https://github.com/MrLouisWright/cookie-sentinel">GitHub</a> · <a href="https://www.npmjs.com/package/cookie-sentinel">npm</a> · <a href="https://github.com/MrLouisWright/cookie-sentinel#readme">README</a></p>
+  </div>
+</footer>
+<script src="app.js" defer></script>
+</body>
+</html>
