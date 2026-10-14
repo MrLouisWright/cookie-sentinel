@@ -1,6 +1,6 @@
 {
   "name": "cookie-sentinel",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Audit Set-Cookie headers for security issues: missing Secure/HttpOnly/SameSite, __Host-/__Secure- prefix violations, broad Domain/Path, long expiry, cookies over HTTP, oversized cookies, JWTs and emails in values, duplicates and Partitioned misuse, with a fix for each. Multi-page crawl with optional login, Open Cookie Database classification, optional Playwright/Puppeteer JS cookie capture. Follows redirects, supports auth headers and offline input. Text, JSON, SARIF, Markdown; GitHub Action included. Zero runtime dependencies.",
   "type": "module",
   "main": "./dist/index.cjs",
