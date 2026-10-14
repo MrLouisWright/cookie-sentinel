@@ -11,6 +11,12 @@ export function formatText(report, { color = false, failOn } = {}) {
   const c = (k, s) => (color ? `${C[k]}${s}${C.reset}` : s);
   const lines = [];
   lines.push(c('bold', `cookie-sentinel — ${report.cookies.length} cookie(s) from ${report.targets.length} target(s)`));
+  if (report.classificationSummary) {
+    const s = report.classificationSummary;
+    lines.push(c('dim', `  classification: ${s.firstParty} first-party, ${s.thirdParty} third-party, ${s.tracking} tracking, ${s.essential} essential (${s.catalogued} in Open Cookie Database)`));
+  }
+  if (report.crawl) lines.push(c('dim', `  crawl: ${report.crawl.discovered} page(s) discovered (max ${report.crawl.maxPages})`));
+  if (report.browser) lines.push(c('dim', `  browser: ${report.browser.engine} captured ${report.browser.cookies} cookie observation(s)`));
   for (const t of report.targets) {
     if (t.error) { lines.push(c('red', `  ✖ ${t.url}: ${t.error}`)); continue; }
     if (t.hops) lines.push(c('dim', `  ${t.hops.map((h) => `${h.status} ${h.url} (${h.cookies} cookie${h.cookies === 1 ? '' : 's'})`).join(' → ')}`));
@@ -24,6 +30,13 @@ export function formatText(report, { color = false, failOn } = {}) {
   }
   for (const [k, list] of groups) {
     lines.push(c('bold', k));
+    const f0 = list[0];
+    const sample = report.cookies.find((co) => co.name === f0.cookie && co.url === f0.url);
+    if (sample?.classification) {
+      const cl = sample.classification;
+      const bits = [cl.party, cl.purpose !== 'unknown' ? cl.purpose : null, cl.category].filter(Boolean);
+      if (bits.length) lines.push(c('dim', `           classification: ${bits.join(' · ')}${cl.vendor ? ` (${cl.vendor})` : ''}`));
+    }
     for (const f of list) {
       lines.push(`  ${c(f.severity, f.severity.toUpperCase().padEnd(8))} ${f.message} [${f.rule}]`);
       lines.push(c('dim', `           ↳ fix: ${f.fix}`));

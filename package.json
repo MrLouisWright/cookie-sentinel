@@ -1,13 +1,16 @@
 {
   "name": "cookie-sentinel",
-  "version": "1.0.0",
-  "description": "Audit Set-Cookie headers for security issues: missing Secure/HttpOnly/SameSite, __Host-/__Secure- prefix violations, broad Domain/Path, long expiry, cookies over HTTP, oversized cookies, JWTs and emails in values, duplicates and Partitioned misuse, with a fix for each. Follows redirects, supports auth headers and offline input. Text, JSON, SARIF, Markdown; GitHub Action included. Zero dependencies.",
+  "version": "1.1.0",
+  "description": "Audit Set-Cookie headers for security issues: missing Secure/HttpOnly/SameSite, __Host-/__Secure- prefix violations, broad Domain/Path, long expiry, cookies over HTTP, oversized cookies, JWTs and emails in values, duplicates and Partitioned misuse, with a fix for each. Multi-page crawl with optional login, Open Cookie Database classification, optional Playwright/Puppeteer JS cookie capture. Follows redirects, supports auth headers and offline input. Text, JSON, SARIF, Markdown; GitHub Action included. Zero runtime dependencies.",
   "type": "module",
-  "main": "./src/index.js",
-  "types": "./src/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./src/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.d.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.js",
+      "require": "./dist/index.cjs",
       "default": "./src/index.js"
     },
     "./package.json": "./package.json"
@@ -17,6 +20,8 @@
   },
   "files": [
     "src",
+    "dist",
+    "data",
     "bin",
     "action.yml",
     "README.md",
@@ -27,7 +32,22 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "build": "node scripts/build.mjs",
+    "prepack": "npm run build",
+    "test": "npm run build && node --test test/*.test.js",
+    "update-ocdb": "node scripts/update-ocdb.mjs"
+  },
+  "peerDependencies": {
+    "playwright": ">=1.40.0",
+    "puppeteer": ">=21.0.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": { "optional": true },
+    "puppeteer": { "optional": true }
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.2"
   },
   "keywords": [
     "cookies",
@@ -46,7 +66,10 @@
     "audit",
     "csrf",
     "xss",
-    "jwt"
+    "jwt",
+    "open-cookie-database",
+    "playwright",
+    "puppeteer"
   ],
   "author": "Louis Wright <hello@louiswright.co.uk> (https://github.com/MrLouisWright)",
   "license": "MIT",

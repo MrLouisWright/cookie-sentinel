@@ -13,7 +13,12 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: '${{ matrix.node }}' }
       - run: npm ci --ignore-scripts
+      - run: npm run build
       - run: npm test
+      - name: Verify package exports (import + require)
+        run: |
+          node --input-type=module -e "import('cookie-sentinel').then(m => { if (typeof m.auditUrls !== 'function') process.exit(1); })"
+          node -e "const r=require('module').createRequire(require('path').join(process.cwd(),'package.json')); if (typeof r('cookie-sentinel').auditSetCookies !== 'function') process.exit(1)"
       - run: npm pack --dry-run
       - name: Dogfood
         run: |

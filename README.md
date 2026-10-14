@@ -1,10 +1,19 @@
 # cookie-sentinel
 
+[![CI](https://github.com/MrLouisWright/cookie-sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/MrLouisWright/cookie-sentinel/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/cookie-sentinel.svg)](https://www.npmjs.com/package/cookie-sentinel)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/node/v/cookie-sentinel.svg)](https://www.npmjs.com/package/cookie-sentinel)
+
 > Audit the cookies your site sets before attackers do.
 
 `cookie-sentinel` fetches your pages (following every redirect), collects every `Set-Cookie` header from every hop and audits each cookie against modern browser rules and security best practice. Every finding comes with a severity and a **concrete fix**. It also audits raw `Set-Cookie` lines offline from a file or stdin.
 
-CLI, library and GitHub Action. Node.js 18+, **zero runtime dependencies**.
+**cookie-sentinel is the dedicated cookie authority** in the [sentinel](https://github.com/MrLouisWright) set — use [header-sentinel](https://github.com/MrLouisWright/header-sentinel) for HTTP security headers only (it keeps a minimal cookie presence check and points here for depth).
+
+CLI, library and GitHub Action. Node.js 18+, **zero runtime dependencies**. Optional **Playwright** / **Puppeteer** peer dependencies for JavaScript-set cookies.
+
+Tests live under [`test/`](test/) and run in [GitHub Actions CI](.github/workflows/ci.yml) (including `import` + `require` checks).
 
 ## Rules
 
@@ -33,51 +42,33 @@ CLI, library and GitHub Action. Node.js 18+, **zero runtime dependencies**.
 
 Deletion cookies (`Max-Age<=0` or an expiry in the past) are ignored. Default session-like names include `sess`, `sid`, `auth`, `token`, `jwt`, `login`, `remember`, `access`, `refresh`, `PHPSESSID`, `JSESSIONID`, `connect.sid` and others. `csrf`/`xsrf` cookies are excluded from the HttpOnly check.
 
+## Classification (Open Cookie Database)
+
+Each cookie is classified **offline** against a bundled snapshot of the [Open Cookie Database](https://github.com/jkwakman/Open-Cookie-Database) (no network at runtime):
+
+- **Party:** first-party vs third-party (from `Domain` / page host)
+- **Purpose:** tracking vs essential (from OCDB category)
+- **Vendor / category** when the name matches the catalogue
+
+Refresh the snapshot when you maintain the package:
+
+```bash
+npm run update-ocdb
+```
+
 ## Install and run
 
 ```bash
 npx cookie-sentinel https://example.com
 npx cookie-sentinel https://example.com -p /login -p /account --fail-on medium
 npx cookie-sentinel https://app.example.com --crawl urls.txt          # URLs or paths, one per line
+npx cookie-sentinel https://app.example.com --crawl-depth 2 --max-pages 40   # follow same-origin links
 npx cookie-sentinel https://app.example.com/account -H "Cookie: session=…"   # audit logged-in pages
+npx cookie-sentinel https://app.example.com --headers-file auth.json --cookies-file jar.txt
+npx cookie-sentinel https://app.example.com --browser playwright      # optional peer dep
 COOKIE_SENTINEL_BEARER=… npx cookie-sentinel https://api.example.com/me
 curl -si https://example.com | npx cookie-sentinel --input -              # offline
 npx cookie-sentinel --input set-cookies.txt --origin https://app.example.com -f sarif > cookies.sarif
-```
-
-### Sample output
-
-```text
-cookie-sentinel — 3 cookie(s) from 1 target(s)
-
-__Host-csrf  https://app.example.com/
-  HIGH     "__Host-csrf" violates the __Host- prefix rules (Path=/app (must be /)); browsers will reject it [host-prefix]
-           ↳ fix: A __Host- cookie must have Secure, Path=/, no Domain and be set over HTTPS.
-
-sid  https://app.example.com/
-  HIGH     "sid" has no Secure attribute; it will be sent over plain HTTP if the user ever hits an http:// URL [missing-secure]
-           ↳ fix: Add Secure: `Set-Cookie: sid=…; Secure`.
-  HIGH     "sid" looks like a session/auth cookie but lacks HttpOnly, so any XSS can steal it via document.cookie [missing-httponly]
-           ↳ fix: Add HttpOnly. If front-end code genuinely needs this value, allowlist it in the config (allow: [{ rule: "missing-httponly", cookie: "sid" }]).
-  MEDIUM   "sid" has no SameSite attribute; behaviour depends on the browser default (Lax in Chromium, None in some others) [samesite-missing]
-           ↳ fix: Set it explicitly: `SameSite=Lax` (or `Strict` for this session cookie).
-  INFO     "sid" is a sensitive cookie sent to every path on app.example.com (Path=/) [broad-path]
-           ↳ fix: If only part of the site needs it (e.g. /api or /admin), set a narrower Path. Note Path is not a security boundary against same-origin scripts.
-
-remember_token  https://app.example.com/
-  MEDIUM   "remember_token" is SameSite=None, so it is sent on cross-site requests (CSRF exposure for a session cookie) [samesite-none]
-           ↳ fix: Use SameSite=Lax unless the cookie is genuinely needed in third-party/iframe contexts; if so, consider Partitioned (CHIPS).
-  MEDIUM   "remember_token" has Domain=example.com, a parent of app.example.com, so every subdomain of example.com receives (and can overwrite) it [broad-domain]
-           ↳ fix: Remove Domain to make it host-only (ideally rename to __Host-remember_token), or scope it to the narrowest host that needs it.
-  MEDIUM   "remember_token" lives for 365 days (limit 30 for session-like cookies) [long-expiry]
-           ↳ fix: Shorten the lifetime (hours to days for sessions) and rotate on use; prefer short-lived sessions with server-side refresh.
-  MEDIUM   "remember_token" contains a JWT whose payload is readable by anyone holding the cookie (claims: sub, email) [sensitive-jwt]
-           ↳ fix: JWT payloads are only base64-encoded, not encrypted. Keep PII out of the claims or use an opaque session id.
-  MEDIUM   "remember_token" JWT payload contains an email address [sensitive-email]
-           ↳ fix: Remove personal data from token claims; use an opaque user id.
-
-3 high, 6 medium, 1 info
-✖ Failing (fail-on: high).
 ```
 
 ### Options
@@ -87,17 +78,19 @@ remember_token  https://app.example.com/
 | `<url…>` | URLs to fetch (`https://` assumed if no scheme). Redirects are followed and cookies from every hop are audited |
 | `-p, --path <path>` | Extra path to fetch on every URL (repeatable) |
 | `--crawl <file>` | File of URLs or paths, one per line (`#` comments allowed) |
+| `--crawl-depth <n>` | Follow same-origin links up to depth `n` (0 = off) |
+| `--max-pages <n>` | Cap when crawling (default 25) |
 | `-H, --header "Name: value"` | Request header (repeatable), e.g. `Cookie` or `Authorization` |
+| `--headers-file <file>` | JSON headers for scripted auth |
+| `--cookies-file <file>` | Cookie jar file (JSON, `name=value` lines, or Netscape format) |
 | `--bearer <token>` | `Authorization: Bearer` shortcut (or `COOKIE_SENTINEL_BEARER`) |
-| `-i, --input <file\|->` | Audit raw `Set-Cookie` lines offline. Accepts `curl -i` output; `@ https://host/path` lines switch URL context and `---` separates responses |
+| `--browser <engine>` | `playwright` or `puppeteer` (optional peer dependencies) |
+| `-i, --input <file\|->` | Audit raw `Set-Cookie` lines offline |
 | `--origin <url>` | URL context for `--input` (default `https://example.com/`) |
 | `-c, --config <file>` | JSON config (default `.cookie-sentinel.json` if present) |
 | `-f, --format` | `text` (default), `json`, `sarif`, `markdown` |
-| `--json/--sarif/--markdown <file>` | Also write that format to a file |
 | `--fail-on <sev>` | `critical`, `high` (default), `medium`, `low`, `info` or `none` |
-| `--session-pattern <regex>` | Extra session-like cookie name pattern (repeatable) |
-| `--max-redirects`, `--timeout`, `--insecure`, `--no-jar` | Fetch tuning. Cookies received are replayed on later hops unless `--no-jar` |
-| `--list-rules` | List rules and default severities |
+| `--no-classify` | Skip Open Cookie Database enrichment |
 
 **Exit codes:** `0` passed, `1` findings at or above `--fail-on`, `2` usage error or every target failed to fetch.
 
@@ -111,52 +104,63 @@ remember_token  https://app.example.com/
   "urls": ["https://app.example.com"],
   "paths": ["/login", "/account"],
   "headers": { "Accept-Language": "en" },
+  "headersFile": "staging-headers.json",
+  "cookiesFile": "staging-cookies.txt",
+  "login": {
+    "url": "https://app.example.com/api/login",
+    "method": "POST",
+    "headers": { "Content-Type": "application/json" },
+    "body": "{\"user\":\"ci\",\"pass\":\"…\"}",
+    "expectStatus": 200
+  },
+  "crawl": { "maxDepth": 2, "maxPages": 30 },
+  "browser": { "engine": "playwright" },
   "sessionPatterns": ["^acme_u$"],
-  "notSessionPatterns": ["^analytics_"],
-  "sessionMaxAgeDays": 14,
-  "maxAgeDays": 400,
-  "largeBytes": 3072,
-  "severity": { "broad-path": "off", "samesite-none": "high" },
-  "allow": [
-    { "rule": "missing-httponly", "cookie": "ui_state", "reason": "read by the SPA" },
-    { "rule": "*", "cookie": "_ga*", "url": "https://app.example.com/*" }
-  ]
+  "severity": { "broad-path": "off" },
+  "allow": [{ "rule": "*", "cookie": "_ga*", "reason": "analytics allowlist" }]
 }
 ```
-
-Allowlist entries match on `rule`, `cookie` and `url` (globs with `*`); a plain string matches a cookie name for every rule. Suppressed findings still appear under `suppressed` in JSON output.
 
 ## GitHub Action
 
 ```yaml
 permissions:
   contents: read
-  security-events: write   # only if you upload SARIF
+  security-events: write
 jobs:
   cookies:
     runs-on: ubuntu-latest
     steps:
-      - uses: MrLouisWright/cookie-sentinel@<sha> # v1
+      - uses: MrLouisWright/cookie-sentinel@<sha>
         with:
           urls: https://staging.example.com
           paths: /login /account
           bearer: ${{ secrets.STAGING_TOKEN }}
           fail-on: medium
+          args: --crawl-depth 1 --max-pages 20
           sarif: cookies.sarif
 ```
 
-Inputs: `urls`, `paths`, `input`, `origin`, `fail-on`, `config`, `bearer`, `sarif`, `json`, `job-summary`, `args`. The Markdown report is written to the job summary.
+Releases are published to npm with **[provenance](https://docs.npmjs.com/generating-provenance-statements)** (see [release workflow](.github/workflows/release.yml)).
 
 ## Library
 
+ESM and CommonJS:
+
 ```js
-import { auditUrls, auditSetCookies, formatText } from 'cookie-sentinel';
+import { auditUrls, auditSetCookies, formatText, classifyCookie } from 'cookie-sentinel';
+// const { auditUrls } = require('cookie-sentinel'); // Node 18+
 
-const report = await auditUrls(['https://example.com'], { paths: ['/login'], headers: { Cookie: 'sid=…' } });
+const report = await auditUrls(['https://example.com'], {
+  paths: ['/login'],
+  crawl: { maxDepth: 1, maxPages: 10 },
+  headers: { Cookie: 'sid=…' },
+});
 console.log(formatText(report, { failOn: 'high' }));
-
-const offline = auditSetCookies(['sid=1; Path=/'], { origin: 'https://example.com/' });
+console.log(report.classificationSummary);
 ```
+
+Build types locally: `npm run build` (generates `dist/index.cjs` and `dist/*.d.ts`).
 
 ## License
 

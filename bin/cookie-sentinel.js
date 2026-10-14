@@ -14,10 +14,15 @@ Usage:
 Options:
   -p, --path <path>         Extra path to fetch on each URL (repeatable), e.g. --path /login
       --crawl <file>        File with URLs or paths, one per line (paths resolve against each URL)
+      --crawl-depth <n>     Follow same-origin links up to this depth (default 0 = off)
+      --max-pages <n>       Max pages when crawling (default 25)
   -H, --header <h>          Request header "Name: value" (repeatable), e.g. -H "Cookie: sid=..."
+      --headers-file <file> JSON object of request headers (or { "headers": { ... } })
+      --cookies-file <file> Cookie jar: JSON, name=value lines, or Netscape format
       --bearer <token>      Shortcut for -H "Authorization: Bearer <token>" (or env COOKIE_SENTINEL_BEARER)
   -i, --input <file|->      Audit raw Set-Cookie lines from a file or stdin (offline, no requests)
       --origin <url>        URL context for --input (default https://example.com/)
+      --browser <engine>    Headless browser: playwright or puppeteer (optional peer dependency)
   -c, --config <file>       JSON config (default: .cookie-sentinel.json if present)
   -f, --format <fmt>        text (default), json, sarif, markdown
       --json <file>         Also write JSON to file
@@ -29,6 +34,7 @@ Options:
       --timeout <ms>        Per-request timeout, default 15000
       --insecure            Accept invalid TLS certificates
       --no-jar              Do not replay received cookies on later redirect hops
+      --no-classify         Skip Open Cookie Database classification
       --list-rules          Print rules and default severities
       --no-color            Disable colours
   -v, --version / -h, --help
@@ -42,13 +48,17 @@ function main() {
       allowPositionals: true,
       options: {
         path: { type: 'string', short: 'p', multiple: true }, crawl: { type: 'string' },
+        'crawl-depth': { type: 'string' }, 'max-pages': { type: 'string' },
         header: { type: 'string', short: 'H', multiple: true }, bearer: { type: 'string' },
+        'headers-file': { type: 'string' }, 'cookies-file': { type: 'string' },
         input: { type: 'string', short: 'i' }, origin: { type: 'string' },
+        browser: { type: 'string' },
         config: { type: 'string', short: 'c' }, format: { type: 'string', short: 'f' },
         json: { type: 'string' }, sarif: { type: 'string' }, markdown: { type: 'string' },
         'fail-on': { type: 'string' }, 'session-pattern': { type: 'string', multiple: true },
         'max-redirects': { type: 'string' }, timeout: { type: 'string' }, insecure: { type: 'boolean' },
-        'no-jar': { type: 'boolean' }, 'list-rules': { type: 'boolean' }, 'no-color': { type: 'boolean' },
+        'no-jar': { type: 'boolean' }, 'no-classify': { type: 'boolean' },
+        'list-rules': { type: 'boolean' }, 'no-color': { type: 'boolean' },
         version: { type: 'boolean', short: 'v' }, help: { type: 'boolean', short: 'h' },
       },
     });
@@ -62,6 +72,9 @@ function main() {
   const cfgPath = o.config || (existsSync('.cookie-sentinel.json') ? '.cookie-sentinel.json' : null);
   if (cfgPath) { try { config = JSON.parse(readFileSync(cfgPath, 'utf8')); } catch (e) { return usage(`Cannot read config ${cfgPath}: ${e.message}`); } }
   if (o['session-pattern']) config.sessionPatterns = [...(config.sessionPatterns || []), ...o['session-pattern']];
+  if (o['no-classify']) config.classify = false;
+  if (o['headers-file']) config.headersFile = o['headers-file'];
+  if (o['cookies-file']) config.cookiesFile = o['cookies-file'];
   try { for (const p of config.sessionPatterns || []) new RegExp(p); } catch (e) { return usage(`Invalid session pattern: ${e.message}`); }
   const failOn = o['fail-on'] || config.failOn || 'high';
   if (failOn !== 'none' && !SEVERITIES.includes(failOn)) return usage(`Invalid --fail-on: ${failOn}`);
@@ -92,7 +105,6 @@ function main() {
   if (o.input) {
     let text;
     try { text = readFileSync(o.input === '-' ? 0 : o.input, 'utf8'); } catch (e) { return usage(`Cannot read ${o.input}: ${e.message}`); }
-    // Accept raw "curl -i" output: keep only Set-Cookie lines if headers are present.
     const lines = text.split(/\r?\n/);
     const looksLikeHeaders = lines.some((l) => /^HTTP\/\d/.test(l) || /^[\w-]+:\s/.test(l) && !/^set-cookie:/i.test(l));
     const kept = looksLikeHeaders ? lines.filter((l) => /^set-cookie:/i.test(l.trim()) || /^HTTP\/\d/.test(l) || /^@/.test(l)).map((l) => (/^HTTP\//.test(l) ? '---' : l)) : lines;
@@ -110,8 +122,22 @@ function main() {
   }
   if (!urls.length) return usage('No URL given (or use --input for offline Set-Cookie checks)');
   try { for (const u of urls) new URL(/^https?:\/\//i.test(u) ? u : `https://${u}`); } catch (e) { return usage(e.message); }
+
+  const depth = Number(o['crawl-depth'] ?? config.crawl?.maxDepth ?? 0);
+  const crawl = depth > 0 ? {
+    maxDepth: depth,
+    maxPages: Number(o['max-pages'] ?? config.crawl?.maxPages ?? 25),
+    sameOrigin: config.crawl?.sameOrigin !== false,
+    allowPath: config.crawl?.allowPath,
+    denyPath: config.crawl?.denyPath,
+  } : config.crawl;
+
+  const browserEngine = o.browser || config.browser?.engine;
+  const browser = browserEngine ? { engine: browserEngine, timeout: config.browser?.timeout, waitUntil: config.browser?.waitUntil } : undefined;
+  if (browserEngine && !['playwright', 'puppeteer'].includes(browserEngine)) return usage(`Invalid --browser: ${browserEngine}`);
+
   return auditUrls(urls, {
-    paths, headers, config,
+    paths, headers, config, crawl, browser,
     maxRedirects: o['max-redirects'] ? Number(o['max-redirects']) : undefined,
     timeout: o.timeout ? Number(o.timeout) : undefined,
     insecure: !!o.insecure || !!config.insecure, jar: !o['no-jar'],

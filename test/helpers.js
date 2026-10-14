@@ -8,7 +8,17 @@ export function startServer() {
     switch (u.pathname) {
       case '/':
         res.setHeader('Set-Cookie', ['theme=dark; Path=/; SameSite=Lax']);
-        return res.end('home');
+        return res.end('<html><body><a href="/about">About</a><a href="/login">Login</a></body></html>');
+      case '/about':
+        res.setHeader('Set-Cookie', ['about_seen=1; Path=/; SameSite=Lax']);
+        return res.end('about');
+      case '/auth':
+        if (req.method === 'POST') {
+          res.setHeader('Set-Cookie', ['sid=good; Path=/; HttpOnly; SameSite=Lax']);
+          return res.end('ok');
+        }
+        res.statusCode = 405;
+        return res.end();
       case '/login':
         res.setHeader('Set-Cookie', ['sessionid=abc; Path=/', 'csrftoken=xyz; Path=/; SameSite=Strict']);
         return res.end('login');

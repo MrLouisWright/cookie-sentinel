@@ -17,6 +17,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: 22 }
       - run: npm ci --ignore-scripts
+      - run: npm run build
       - run: npm test
       - run: npm pack --dry-run
 
@@ -44,7 +45,7 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --provenance --access public
+        run: npm run build && npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
