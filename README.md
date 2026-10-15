@@ -166,6 +166,18 @@ Build types locally: `npm run build` (generates `dist/index.cjs` and `dist/*.d.t
 
 If this project is useful to you, you can support its development with a donation: [Buy me a coffee](https://donate.stripe.com/aFa00lek3cvX4Ds2Fk9EI0b). It helps keep these tools maintained, documented and free for everyone.
 
+## Credit (optional)
+
+Free to use under MIT, no attribution required. If cookie-sentinel helps you, a link back is appreciated:
+
+```html
+<a href="https://louiswright.co.uk">Built with cookie-sentinel by Louis Wright</a>
+```
+
+```markdown
+[![Built with cookie-sentinel by Louis Wright](https://img.shields.io/badge/built%20with-cookie--sentinel-blue)](https://louiswright.co.uk)
+```
+
 ## License
 
 MIT © Louis Wright ([Louis Wright](https://github.com/MrLouisWright))
