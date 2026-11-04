@@ -94,6 +94,49 @@ npx cookie-sentinel --input set-cookies.txt --origin https://app.example.com -f 
 
 **Exit codes:** `0` passed, `1` findings at or above `--fail-on`, `2` usage error or every target failed to fetch.
 
+## Options
+
+Full CLI reference (`cookie-sentinel --help`):
+
+```text
+cookie-sentinel 1.1.1 — audit Set-Cookie headers for security issues
+
+Usage:
+  cookie-sentinel <url...> [options]
+  cookie-sentinel --input cookies.txt [--origin https://app.example.com]
+  curl -sI https://example.com | cookie-sentinel --input -
+
+Options:
+  -p, --path <path>         Extra path to fetch on each URL (repeatable), e.g. --path /login
+      --crawl <file>        File with URLs or paths, one per line (paths resolve against each URL)
+      --crawl-depth <n>     Follow same-origin links up to this depth (default 0 = off)
+      --max-pages <n>       Max pages when crawling (default 25)
+  -H, --header <h>          Request header "Name: value" (repeatable), e.g. -H "Cookie: sid=..."
+      --headers-file <file> JSON object of request headers (or { "headers": { ... } })
+      --cookies-file <file> Cookie jar: JSON, name=value lines, or Netscape format
+      --bearer <token>      Shortcut for -H "Authorization: Bearer <token>" (or env COOKIE_SENTINEL_BEARER)
+  -i, --input <file|->      Audit raw Set-Cookie lines from a file or stdin (offline, no requests)
+      --origin <url>        URL context for --input (default https://example.com/)
+      --browser <engine>    Headless browser: playwright or puppeteer (optional peer dependency)
+  -c, --config <file>       JSON config (default: .cookie-sentinel.json if present)
+  -f, --format <fmt>        text (default), json, sarif, markdown
+      --json <file>         Also write JSON to file
+      --sarif <file>        Also write SARIF to file
+      --markdown <file>     Also write Markdown to file
+      --fail-on <sev>       critical | high (default) | medium | low | info | none
+      --session-pattern <re> Extra regex for session-like cookie names (repeatable)
+      --max-redirects <n>   Default 10
+      --timeout <ms>        Per-request timeout, default 15000
+      --insecure            Accept invalid TLS certificates
+      --no-jar              Do not replay received cookies on later redirect hops
+      --no-classify         Skip Open Cookie Database classification
+      --list-rules          Print rules and default severities
+      --no-color            Disable colours
+  -v, --version / -h, --help
+
+Exit codes: 0 = passed, 1 = findings at or above --fail-on, 2 = usage or fetch error.
+```
+
 ## Configuration
 
 `.cookie-sentinel.json`:
